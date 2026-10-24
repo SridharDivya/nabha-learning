@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Bulk Upload Students / Teachers{% endblock %}
+{% block content %}
+<div class="form-card">
+    <h2>Bulk Upload Students / Teachers</h2>
+    <p class="muted">
+        Upload an <strong>.xlsx</strong> file to create many accounts at once instead of
+        registering each person one by one.
+    </p>
+
+    <p>
+        <a class="btn btn-outline" href="{{ url_for('bulk_upload_template') }}">
+            ⬇ Download sample Excel template
+        </a>
+    </p>
+
+    <p class="muted">
+        The file needs these column headers in the first row:
+    </p>
+    <ul class="muted">
+        <li><strong>name</strong> — full name</li>
+        <li><strong>email</strong> — must be unique</li>
+        <li><strong>password</strong> — plain text, will be hashed automatically</li>
+        <li><strong>role</strong> — either <code>student</code> or <code>teacher</code></li>
+        <li><strong>class_grade</strong> — only needed for students (e.g. <code>8</code>)</li>
+    </ul>
+
+    <form method="POST" enctype="multipart/form-data">
+        <label>Excel file (.xlsx)</label>
+        <input type="file" name="excel_file" accept=".xlsx" required>
+        <button class="btn btn-primary" type="submit">Upload &amp; Create Accounts</button>
+    </form>
+</div>
+{% endblock %}

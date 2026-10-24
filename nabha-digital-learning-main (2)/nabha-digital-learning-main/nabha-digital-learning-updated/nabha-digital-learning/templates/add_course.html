@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}New Course{% endblock %}
+{% block content %}
+<div class="form-card">
+    <h2>Create a New Course</h2>
+    <form method="POST">
+        <label>Title</label>
+        <input type="text" name="title" required>
+
+        <label>Subject</label>
+        <input type="text" name="subject" required>
+
+        <label>Class / Grade (e.g. 8)</label>
+        <input type="text" name="class_grade" required>
+
+        <label>Description</label>
+        <textarea name="description" rows="4"></textarea>
+
+        <button class="btn btn-primary" type="submit">Create Course</button>
+    </form>
+</div>
+{% endblock %}

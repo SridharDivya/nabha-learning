@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }}{% endblock %}
+{% block content %}
+<a href="{{ 'javascript:history.back()' }}">&larr; Back</a>
+<h2>{{ course.title }}</h2>
+<p class="muted">{{ course.subject }} • Class {{ course.class_grade }}</p>
+<p>{{ course.description }}</p>
+
+<h3>Lessons</h3>
+<ul class="lesson-list">
+    {% for lesson in course.lessons %}
+    <li>
+        <a href="{{ url_for('view_lesson', lesson_id=lesson.id) }}">
+            {{ loop.index }}. {{ lesson.title }}
+            <span class="tag">{{ lesson.content_type }}</span>
+        </a>
+        {% if user.role == 'student' and lesson.id in completed_ids %}
+            <span class="badge-done">✓ Completed</span>
+        {% endif %}
+    </li>
+    {% else %}
+    <li>No lessons added yet.</li>
+    {% endfor %}
+</ul>
+
+<h3>Quizzes</h3>
+<ul class="lesson-list">
+    {% for quiz in course.quizzes %}
+    <li>
+        {% if user.role == 'student' %}
+            <a href="{{ url_for('take_quiz', quiz_id=quiz.id) }}">{{ quiz.title }} ({{ quiz.questions|length }} questions)</a>
+        {% else %}
+            {{ quiz.title }} ({{ quiz.questions|length }} questions)
+            <a class="tag" href="{{ url_for('add_question', quiz_id=quiz.id) }}">+ Add question</a>
+        {% endif %}
+    </li>
+    {% else %}
+    <li>No quizzes added yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

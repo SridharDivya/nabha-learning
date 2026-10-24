@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}{{ lesson.title }}{% endblock %}
+{% block content %}
+<a href="{{ url_for('view_course', course_id=course.id) }}">&larr; Back to {{ course.title }}</a>
+<h2>{{ display_title }}</h2>
+{% if lang != 'en' %}
+    <p class="translation-note">🌐 Auto-translated to {{ supported_languages[lang] }}. <a href="#" onclick="event.preventDefault(); document.getElementById('original-text').classList.toggle('hidden');">Show/hide original English</a></p>
+{% endif %}
+
+{% if lesson.content_type == 'text' %}
+<button type="button" id="listen-btn" class="listen-btn">🔊 Listen to this lesson</button>
+{% endif %}
+
+<div class="lesson-content">
+    {% if lesson.content_type == 'text' %}
+        <p id="narration-text">{{ display_content }}</p>
+        {% if lang != 'en' %}
+            <p id="original-text" class="muted hidden"><em>Original (English):</em> {{ lesson.content }}</p>
+        {% endif %}
+    {% elif lesson.content_type == 'video' %}
+        <div class="video-wrap">
+            <iframe src="{{ lesson.content }}" allowfullscreen></iframe>
+        </div>
+    {% elif lesson.content_type == 'pdf' %}
+        <p><a class="btn btn-outline" href="{{ url_for('static', filename='uploads/' + lesson.content) }}" target="_blank">Open PDF</a></p>
+    {% endif %}
+</div>
+
+{% if user.role == 'student' %}
+<button id="mark-complete-btn" class="btn btn-primary" data-lesson-id="{{ lesson.id }}">Mark as Complete</button>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---- voice narration: reads the (possibly translated) lesson text aloud ----
+const listenBtn = document.getElementById('listen-btn');
+if (listenBtn) {
+    const speechLangCodes = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN' };
+    const narrationLang = speechLangCodes['{{ lang }}'] || 'en-IN';
+    const narrationText = document.getElementById('narration-text').textContent;
+
+    if (!('speechSynthesis' in window)) {
+        listenBtn.disabled = true;
+        listenBtn.textContent = 'Voice narration not supported on this device';
+    } else {
+        listenBtn.addEventListener('click', () => {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+                listenBtn.classList.remove('speaking');
+                listenBtn.textContent = '🔊 Listen to this lesson';
+                return;
+            }
+            const utterance = new SpeechSynthesisUtterance(narrationText);
+            utterance.lang = narrationLang;
+            utterance.rate = 0.95;
+
+            // Prefer a voice that matches the lesson's language, if the device has one.
+            const voices = speechSynthesis.getVoices();
+            const match = voices.find(v => v.lang === narrationLang) ||
+                          voices.find(v => v.lang.startsWith(narrationLang.split('-')[0]));
+            if (match) utterance.voice = match;
+
+            utterance.onstart = () => {
+                listenBtn.classList.add('speaking');
+                listenBtn.textContent = '⏹ Stop narration';
+            };
+            utterance.onend = utterance.onerror = () => {
+                listenBtn.classList.remove('speaking');
+                listenBtn.textContent = '🔊 Listen to this lesson';
+            };
+            speechSynthesis.speak(utterance);
+        });
+    }
+}
+
+const btn = document.getElementById('mark-complete-btn');
+if (btn) {
+    btn.addEventListener('click', async () => {
+        const lessonId = btn.dataset.lessonId;
+        try {
+            const res = await fetch(`/lesson/${lessonId}/complete`, { method: 'POST' });
+            if (res.ok) {
+                btn.textContent = '✓ Completed';
+                btn.disabled = true;
+            }
+        } catch (e) {
+            // No network — queue it so offline-sync.js can mark it complete later.
+            queueOfflineLessonCompletion(lessonId);
+            btn.textContent = '✓ Saved locally (will sync)';
+            btn.disabled = true;
+        }
+    });
+}
+</script>
+{% endblock %}
