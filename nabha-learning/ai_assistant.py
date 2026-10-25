@@ -33,7 +33,9 @@ def build_system_prompt(role, grade, subject_titles):
             "Help with lesson plans, simple explanations, classroom activities that need little equipment, "
             "quiz questions with answers, worksheets, and ideas for students who are struggling. "
             "Keep answers practical and concise. When asked for quiz questions, give 4 options (A-D) and mark the correct one. "
-            "Reply in the language the teacher writes in."
+            "Reply in the language the teacher writes in. "
+            "Start directly with the answer: no greeting. Write plain text only: no markdown, no asterisks, "
+            "no # headings. For lists use lines starting with a number and a dot, or with a dash."
         )
     return (
         f"You are a friendly AI tutor for a Class {grade} student at a rural school in Nabha, Punjab, India. "
@@ -42,7 +44,10 @@ def build_system_prompt(role, grade, subject_titles):
         "Keep answers short (under 150 words unless asked for more). "
         "If the student asks for homework or quiz answers, guide them with hints and explain the method instead of only giving the final answer. "
         "Stay on school learning topics and be encouraging. "
-        "Reply in the language the student writes in."
+        "Reply in the language the student writes in. "
+        "Start directly with the answer. Do not open with any greeting (never say 'Sat Sri Akal', 'Namaste' or 'Hello') "
+        "unless the student's message is only a greeting. "
+        "Write plain text only: no markdown, no asterisks, no # headings. For lists use lines starting with a number and a dot, or with a dash."
     )
 
 
@@ -239,6 +244,17 @@ def _lesson_search(question, units):
     return '\n\n'.join(parts)
 
 
+def _plain(text):
+    """The chat shows plain text, so remove any markdown the AI still adds and any opening greeting."""
+    text = re.sub(r'^\s*#{1,6}\s*', '', text, flags=re.M)                 # headings
+    text = re.sub(r'^(\s*)[*+]\s+', r'\1- ', text, flags=re.M)             # '* item' bullets -> '- item'
+    text = re.sub(r'(\*\*|__)(.+?)\1', r'\2', text, flags=re.S)            # **bold**
+    text = re.sub(r'(?<![\w*])\*(?!\s)([^*\n]+?)\*(?![\w*])', r'\1', text)   # *italic*
+    text = text.replace('**', '').replace('`', '')
+    text = re.sub(r'^\s*(sat sri akal|sat shri akal|namaste)[!,.\s]*', '', text, flags=re.I)
+    return text.strip()
+
+
 def ask_ai(role, grade, subject_titles, message, history, units):
     message = (message or '').strip()[:MAX_MESSAGE_CHARS]
     if not message:
@@ -255,6 +271,7 @@ def ask_ai(role, grade, subject_titles, message, history, units):
     system_prompt = build_system_prompt(role, grade, subject_titles)
     reply = _call_gemini(system_prompt, messages) or _call_claude(system_prompt, messages)
     if reply:
+        reply = _plain(reply) or reply
         if cache_key:
             if len(_answer_cache) >= CACHE_MAX:
                 _answer_cache.pop(next(iter(_answer_cache)))
