@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Quiz Result{% endblock %}
+{% block content %}
+<div class="form-card" style="max-width:640px">
+    <h2>{{ quiz.title }}</h2>
+    <p class="score">{{ correct }} / {{ total }} correct ({{ score }}%)</p>
+    {% if current_user.role == 'teacher' %}<p class="hint">Preview only - teacher attempts are not saved.</p>{% endif %}
+    <a class="btn btn-primary" href="{{ url_for('subject_detail', subject_id=quiz.unit.subject_id) }}">Back to {{ quiz.unit.subject.title }}</a>
+</div>
+<h3>Review your answers</h3>
+{% for item in review %}
+<div class="question-block">
+    <h4>{{ loop.index }}. {{ item.question.question_text }}</h4>
+    <p>
+        {% if item.right %}<span class="status status-present">Correct</span>
+        {% else %}<span class="status status-absent">{{ 'Not answered' if not item.selected else 'Wrong' }}</span>{% endif %}
+        &nbsp;Your answer: <strong>{{ item.selected or '-' }}</strong> &nbsp;|&nbsp; Correct answer: <strong>{{ item.question.correct_option }}</strong>
+    </p>
+</div>
+{% endfor %}
+{% endblock %}

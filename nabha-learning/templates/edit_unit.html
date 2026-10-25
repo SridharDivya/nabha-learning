@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Edit lesson{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('teacher_subject', subject_id=unit.subject_id) }}">← Back to {{ unit.subject.title }}</a></div>
+<div class="form-card" style="max-width:none">
+    <h2 style="margin-top:0">Edit Unit {{ unit.unit_number }}</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <label for="title">Lesson title</label>
+        <input id="title" type="text" name="title" value="{{ unit.title }}" required maxlength="150">
+        <label for="content">Lesson content</label>
+        <textarea id="content" name="content" rows="12">{{ unit.content or '' }}</textarea>
+        <label for="pdf">PDF lesson</label>
+        {% if unit.pdf_pages %}
+            <p class="muted" style="margin:0 0 6px">Current: <a href="{{ url_for('unit_pdf', unit_id=unit.id) }}" target="_blank" rel="noopener">{{ unit.pdf_name }}</a> ({{ unit.pdf_pages }} pages). Choose a new file below to replace it.</p>
+        {% endif %}
+        <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf">
+        {% if unit.pdf_pages %}
+        <label style="font-weight:400"><input type="checkbox" name="remove_pdf" value="1" style="width:auto"> Remove the current PDF</label>
+        {% endif %}
+        <label for="video_url">Video link (optional)</label>
+        <input id="video_url" type="url" name="video_url" value="{{ unit.video_url or '' }}">
+        <button class="btn btn-primary" type="submit">Save changes</button>
+    </form>
+</div>
+{% endblock %}
