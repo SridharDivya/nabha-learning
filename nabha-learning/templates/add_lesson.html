@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Add Lesson{% endblock %}
+{% block content %}
+<div class="form-card">
+    <h2>Add Lesson to "{{ course.title }}"</h2>
+    <form method="POST">
+        <label>Lesson Title</label>
+        <input type="text" name="title" required>
+
+        <label>Content Type</label>
+        <select name="content_type">
+            <option value="text">Text</option>
+            <option value="video">Video (embed URL)</option>
+            <option value="pdf">PDF (filename already in static/uploads)</option>
+        </select>
+
+        <label>Content</label>
+        <textarea name="content" rows="5" placeholder="Text body, or video embed URL, or PDF filename" required></textarea>
+
+        <button class="btn btn-primary" type="submit">Add Lesson</button>
+    </form>
+</div>
+{% endblock %}

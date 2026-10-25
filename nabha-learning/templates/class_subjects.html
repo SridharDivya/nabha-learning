@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Class {{ grade }} Subjects - Nabha Digital Learning{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('classes') }}">Classes</a> / Class {{ grade }}</div>
+<h2>Class {{ grade }} - Subjects</h2>
+
+<nav class="grade-tabs" aria-label="Choose class">
+    {% for g in all_grades %}
+        <a href="{{ url_for('class_subjects', grade=g) }}" class="{{ 'active' if g == grade else '' }}">Class {{ g }}</a>
+    {% endfor %}
+</nav>
+
+<div class="card-grid">
+    {% for subject in subjects %}
+    <a class="card subject-card" href="{{ url_for('subject_detail', subject_id=subject.id) }}">
+        <h3>{{ subject.title }}</h3>
+        <p class="muted">{{ subject.description }}</p>
+        <span class="tag" style="margin-left:0">{{ subject.units|length }} units</span>
+    </a>
+    {% else %}
+    <p class="muted">No subjects available for this class yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Student Progress{% endblock %}
+{% block content %}
+<h2>Quiz Attempts (Your Courses)</h2>
+<table class="data-table">
+    <thead>
+        <tr><th>Student</th><th>Quiz</th><th>Score</th><th>Date</th><th>Source</th></tr>
+    </thead>
+    <tbody>
+        {% for a in attempts %}
+        <tr>
+            <td>{{ a.student.name }}</td>
+            <td>{{ a.quiz.title }}</td>
+            <td>{{ a.score }} / {{ a.total }}</td>
+            <td>{{ a.submitted_at.strftime('%d %b %Y %H:%M') }}</td>
+            <td>{{ 'Synced from offline' if a.synced_offline else 'Online' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No quiz attempts yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>All Students</h2>
+<table class="data-table">
+    <thead><tr><th>Name</th><th>Email</th><th>Class</th></tr></thead>
+    <tbody>
+        {% for s in students %}
+        <tr><td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.class_grade }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

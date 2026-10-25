@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Classes 5-10 - Nabha Digital Learning{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>📚 Classes 5 to 10</h2>
+</div>
+<p class="muted">Pick a class to see its subjects, then open any subject to read the lessons.</p>
+
+{% for g in grades %}
+<section class="grade-section">
+    <h2>
+        <span>Class {{ g.grade }}</span>
+        <a class="btn btn-outline" href="{{ url_for('class_subjects', grade=g.grade) }}">Open Class {{ g.grade }}</a>
+    </h2>
+    <div class="chip-row">
+        {% for subject in g.subjects %}
+            <a class="chip" href="{{ url_for('subject_detail', subject_id=subject.id) }}">{{ subject.title }}</a>
+        {% else %}
+            <span class="muted">No subjects yet.</span>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% endblock %}
