@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from models import (db, User, Subject, Unit, Quiz, Question, QuizResult,
                     TimetableEntry, Attendance)
 from curriculum_data import CURRICULUM
-from ai_assistant import ask_ai
+from ai_assistant import ask_ai, ai_enabled
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nabha-digital-secret-key-2026')
@@ -604,7 +604,7 @@ def delete_quiz(quiz_id):
 def assistant():
     if current_user.role == 'student' and not current_user.grade:
         return redirect(url_for('set_class'))
-    ai_on = bool(os.environ.get('ANTHROPIC_API_KEY'))
+    ai_on = ai_enabled()
     return render_template('assistant.html', ai_on=ai_on)
 
 
