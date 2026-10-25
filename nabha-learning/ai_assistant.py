@@ -70,6 +70,54 @@ def ai_enabled():
 
 
 RETRY_STATUSES = {429, 500, 502, 503, 504}   # temporary Google-side problems worth retrying
+MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=100'
+_model_cache = {'at': 0, 'models': []}
+
+
+def _fallback_models(key, skip):
+    """Ask Google which text models this key can use, and return a few 'flash' ones to try when the
+    main model is busy. Cached for an hour. Lighter ('lite') models come first: they are the least busy."""
+    if time.time() - _model_cache['at'] > 3600:
+        names = []
+        try:
+            r = requests.get(MODELS_URL, headers={'x-goog-api-key': key}, timeout=8)
+            if r.status_code == 200:
+                for m in r.json().get('models', []):
+                    name = m.get('name', '').replace('models/', '')
+                    if ('generateContent' in m.get('supportedGenerationMethods', []) and 'flash' in name
+                            and not any(x in name for x in ('image', 'tts', 'live', 'audio', 'embed', 'robotics'))):
+                        names.append(name)
+                names.sort(key=lambda n: ('lite' not in n, n), reverse=False)
+                print(f'[ai_assistant] fallback models available: {names[:6]}', flush=True)
+            else:
+                print(f'[ai_assistant] could not list models: {r.status_code}', flush=True)
+        except Exception as exc:
+            print(f'[ai_assistant] could not list models: {exc!r}', flush=True)
+        _model_cache.update(at=time.time(), models=names)
+    return [n for n in _model_cache['models'] if n != skip][:2]
+
+
+def _try_gemini_model(model, key, payload, attempts):
+    """Returns (text_or_None, give_up_on_this_model_only)."""
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                GEMINI_URL.format(model=model),
+                headers={'x-goog-api-key': key, 'content-type': 'application/json'},
+                json=payload, timeout=15)
+            if response.status_code == 200:
+                parts = response.json()['candidates'][0]['content']['parts']
+                text = ''.join(p.get('text', '') for p in parts).strip()
+                return text or None
+            # Shows up in Render's Logs tab so a wrong key or model name is easy to spot.
+            print(f'[ai_assistant] Gemini {model} error {response.status_code} (try {attempt + 1}/{attempts}): {response.text[:300]}', flush=True)
+            if response.status_code not in RETRY_STATUSES:
+                return None
+        except Exception as exc:
+            print(f'[ai_assistant] Gemini {model} call failed (try {attempt + 1}/{attempts}): {exc!r}', flush=True)
+        if attempt < attempts - 1:
+            time.sleep(2)
+    return None
 
 
 def _call_gemini(system_prompt, messages):
@@ -85,24 +133,15 @@ def _call_gemini(system_prompt, messages):
         ],
         'generationConfig': {'maxOutputTokens': 900, 'temperature': 0.6},
     }
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                GEMINI_URL.format(model=model),
-                headers={'x-goog-api-key': key, 'content-type': 'application/json'},
-                json=payload, timeout=20)
-            if response.status_code == 200:
-                parts = response.json()['candidates'][0]['content']['parts']
-                text = ''.join(p.get('text', '') for p in parts).strip()
-                return text or None
-            # Shows up in Render's Logs tab so a wrong key or model name is easy to spot.
-            print(f'[ai_assistant] Gemini error {response.status_code} (try {attempt + 1}/3): {response.text[:300]}', flush=True)
-            if response.status_code not in RETRY_STATUSES:
-                return None
-        except Exception as exc:
-            print(f'[ai_assistant] Gemini call failed (try {attempt + 1}/3): {exc!r}', flush=True)
-        if attempt < 2:
-            time.sleep(2 * (attempt + 1))      # 2s, then 4s; total stays well under gunicorn's 90s
+    text = _try_gemini_model(model, key, payload, attempts=2)
+    if text:
+        return text
+    # Main model busy or unavailable: try other models this key can use (worst case ~65s, under gunicorn's 90s).
+    for other in _fallback_models(key, skip=model):
+        text = _try_gemini_model(other, key, payload, attempts=1)
+        if text:
+            print(f'[ai_assistant] answered using fallback model {other}', flush=True)
+            return text
     return None
 
 
