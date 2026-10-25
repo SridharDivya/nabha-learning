@@ -1,0 +1,32 @@
+<div class="table-scroll">
+<table class="data-table timetable">
+    <thead>
+        <tr>
+            <th>Period</th>
+            {% for d in days %}<th class="{{ 'today' if loop.index0 == today_idx }}">{{ d }}</th>{% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in periods %}
+        <tr>
+            <td><strong>P{{ p.number }}</strong><br><span class="muted">{{ p.start }}-{{ p.end }}</span></td>
+            {% for d in days %}
+                {% set e = grid.get((p.number, loop.index0)) %}
+                <td class="{{ 'today' if loop.index0 == today_idx }}">
+                    {% if e %}
+                        {{ e.subject_name }}
+                        {% if editable %}
+                        <form method="POST" action="{{ url_for('delete_timetable_entry', entry_id=e.id) }}" class="inline-form">
+                            <button class="link-danger" title="Remove" onclick="return confirm('Remove this slot?')">✕</button>
+                        </form>
+                        {% endif %}
+                    {% else %}<span class="muted">-</span>{% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No timetable yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>

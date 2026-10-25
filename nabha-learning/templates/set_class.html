@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Choose your class{% endblock %}
+{% block content %}
+<div class="form-card">
+    <h2>Which class are you in?</h2>
+    <p class="muted">We will show you the subjects, lessons, quizzes and timetable for your class.</p>
+    <form method="POST">
+        <label for="grade">My class</label>
+        <select id="grade" name="grade" required>
+            <option value="">Choose your class</option>
+            {% for g in grades %}<option value="{{ g }}">Class {{ g }}</option>{% endfor %}
+        </select>
+        <button class="btn btn-primary" type="submit">Continue</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{
+    "name": "Nabha Digital Learning",
+    "short_name": "NabhaLearn",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#f7f7f2",
+    "theme_color": "#1a6d3d"
+}

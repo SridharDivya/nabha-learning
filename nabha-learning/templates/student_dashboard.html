@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% block title %}My Courses - Class {{ current_user.grade }}{% endblock %}
+{% block content %}
+<section class="dash-head">
+    <div>
+        <h1>{{ greeting }}, {{ current_user.username }}</h1>
+        <p>{{ today_text }} · Class {{ current_user.grade }}</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('assistant') }}">{{ icon('bot') }} Ask AI tutor</a>
+</section>
+
+<div class="kpi-grid">
+    <div class="kpi"><span class="kpi-icon">{{ icon('check') }}</span><div><span>Attendance</span><strong>{% if attendance.pct is none %}-{% else %}{{ attendance.pct }}%{% endif %}</strong></div></div>
+    <div class="kpi"><span class="kpi-icon amber">{{ icon('chart') }}</span><div><span>Average score</span><strong>{{ avg_score }}%</strong></div></div>
+    <div class="kpi"><span class="kpi-icon violet">{{ icon('quiz') }}</span><div><span>Quizzes taken</span><strong>{{ total_quizzes }}</strong></div></div>
+    <div class="kpi"><span class="kpi-icon blue">{{ icon('book') }}</span><div><span>Subjects</span><strong>{{ subject_cards|length }}</strong></div></div>
+</div>
+
+<div class="grid-2">
+    <section class="panel">
+        <div class="panel-head"><h3>Today's classes · {{ today_name }}</h3><a class="btn btn-outline btn-small" href="{{ url_for('student_timetable') }}">Full timetable</a></div>
+        {% if today_classes %}
+        <ul class="timeline">
+            {% for e in today_classes %}
+            <li class="{{ 'now' if e.start_time <= now_hm < e.end_time }}">
+                <span class="tl-period">P{{ e.period }}</span>
+                <div><strong>{{ e.subject_name }}</strong>{% if e.start_time <= now_hm < e.end_time %}<span class="muted">Happening now</span>{% endif %}</div>
+                <span class="tl-time">{{ e.start_time }} - {{ e.end_time }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">No classes scheduled today.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h3>Attendance</h3><a class="btn btn-outline btn-small" href="{{ url_for('student_attendance') }}">View record</a></div>
+        <div class="donut-wrap">
+            <div class="donut" style="--pct: {{ attendance.pct or 0 }}"><div class="donut-inner">{% if attendance.pct is none %}-{% else %}{{ attendance.pct }}%{% endif %}</div></div>
+            <div class="legend">
+                <p><span class="dot"></span>Present: <strong>{{ attendance.present }}</strong> days</p>
+                <p><span class="dot absent"></span>Absent: <strong>{{ attendance.total - attendance.present }}</strong> days</p>
+                {% if attendance.pct is not none and attendance.pct < 75 %}<p class="pill pill-warn">Below 75% - try to attend regularly</p>{% endif %}
+                {% if attendance.total == 0 %}<p class="muted">Your teacher has not marked attendance yet.</p>{% endif %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="section-title"><h2>My subjects</h2><span class="muted">{{ quizzes_available }} quizzes available</span></div>
+<div class="card-grid" style="margin-top:0">
+    {% for sc in subject_cards %}
+    <a class="subject-card tint-{{ loop.index0 % 6 }}" href="{{ url_for('subject_detail', subject_id=sc.subject.id) }}">
+        <span class="subject-ic">{{ icon('book') }}</span>
+        <h3>{{ sc.subject.title }}</h3>
+        <span class="muted">{{ sc.subject.description }}</span>
+        <div class="subject-meta"><span>{{ sc.lessons }} lessons</span><span>{{ sc.done }}/{{ sc.quizzes }} quizzes done</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width: {{ sc.pct }}%"></div></div>
+    </a>
+    {% else %}
+    <p class="empty">Your teacher has not added subjects for Class {{ current_user.grade }} yet.</p>
+    {% endfor %}
+</div>
+
+<div class="section-title"><h2>Recent quiz results</h2></div>
+{% if results %}
+<div class="table-scroll">
+<table class="data-table">
+    <thead><tr><th>Quiz</th><th>Score</th><th>Date</th></tr></thead>
+    <tbody>
+        {% for r in results %}
+        <tr>
+            <td>{{ quiz_titles.get(r.quiz_id, 'Quiz') }}</td>
+            <td><span class="pill {{ 'pill-ok' if r.score >= 75 else ('pill-warn' if r.score >= 50 else 'pill-bad') }}">{{ r.score|round|int }}%</span></td>
+            <td>{{ r.completed_at.strftime('%d %b %Y') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty panel">You have not taken any quiz yet. Open a subject and try one!</p>
+{% endif %}
+{% endblock %}
