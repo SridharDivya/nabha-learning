@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Timetable - Class {{ grade }}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('teacher_dashboard') }}">Dashboard</a> / <a href="{{ url_for('teacher_class', grade=grade) }}">Class {{ grade }}</a> / Timetable</div>
+<h2>🗓️ Class {{ grade }} Timetable</h2>
+{% include '_timetable.html' %}
+
+<div class="form-card" style="max-width:none">
+    <h3 style="margin-top:0">Add or change a period</h3>
+    <p class="hint" style="margin-top:0">Choosing a day and period that already exists replaces it.</p>
+    <form method="POST" action="{{ url_for('add_timetable_entry', grade=grade) }}">
+        <div class="form-row">
+            <div><label for="day">Day</label>
+                <select id="day" name="day">{% for d in days %}<option value="{{ loop.index0 }}">{{ d }}</option>{% endfor %}</select></div>
+            <div><label for="period">Period no.</label>
+                <input id="period" type="number" name="period" min="1" max="10" value="1" required></div>
+            <div><label for="subject_name">Subject</label>
+                <input id="subject_name" type="text" name="subject_name" list="subject-names" required maxlength="100">
+                <datalist id="subject-names">
+                    {% for n in subject_names %}<option value="{{ n }}">{% endfor %}
+                    <option value="Break"><option value="Library"><option value="Sports"><option value="Assembly">
+                </datalist></div>
+            <div><label for="start_time">Start</label><input id="start_time" type="time" name="start_time" value="09:00" required></div>
+            <div><label for="end_time">End</label><input id="end_time" type="time" name="end_time" value="09:45" required></div>
+        </div>
+        <button class="btn btn-primary" type="submit">Save period</button>
+    </form>
+</div>
+{% endblock %}

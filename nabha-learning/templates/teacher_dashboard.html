@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% block title %}Teacher Dashboard{% endblock %}
+{% block content %}
+<section class="dash-head">
+    <div>
+        <h1>{{ greeting }}, {{ current_user.username }}</h1>
+        <p>{{ today_text }} · Here is how your classes are doing.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('assistant') }}">{{ icon('bot') }} Ask AI assistant</a>
+</section>
+
+<div class="kpi-grid">
+    <div class="kpi"><span class="kpi-icon">{{ icon('users') }}</span><div><span>Students</span><strong>{{ total_students }}</strong></div></div>
+    <div class="kpi"><span class="kpi-icon blue">{{ icon('book') }}</span><div><span>Subjects</span><strong>{{ total_subjects }}</strong></div></div>
+    <div class="kpi"><span class="kpi-icon violet">{{ icon('quiz') }}</span><div><span>Quizzes</span><strong>{{ total_quizzes }}</strong></div></div>
+    <div class="kpi"><span class="kpi-icon amber">{{ icon('chart') }}</span><div><span>Average quiz score</span><strong>{{ class_avg }}%</strong></div></div>
+    <div class="kpi"><span class="kpi-icon">{{ icon('check') }}</span><div><span>Attendance today</span><strong>{% if attendance_today is none %}Not marked{% else %}{{ attendance_today }}%{% endif %}</strong></div></div>
+</div>
+
+<div class="section-title"><h2>Your classes</h2><span class="muted">Classes 5 to 10</span></div>
+<div class="card-grid" style="margin-top:0">
+    {% for c in cards %}
+    <a class="class-card" href="{{ url_for('teacher_class', grade=c.grade) }}">
+        <div class="class-top">
+            <span class="grade-badge">{{ c.grade }}</span>
+            <div><h3>Class {{ c.grade }}</h3><span class="muted">{{ c.students }} student{{ '' if c.students == 1 else 's' }}</span></div>
+        </div>
+        <div class="mini-stats">
+            <span><strong>{{ c.subjects|length }}</strong> subjects</span>
+            <span><strong>{{ c.quizzes }}</strong> quizzes</span>
+            <span>Avg <strong>{% if c.avg is none %}-{% else %}{{ c.avg }}%{% endif %}</strong></span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width: {{ c.avg or 0 }}%"></div></div>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="grid-2" style="margin-top:22px">
+    <section class="panel">
+        <div class="panel-head"><h3>Average score by class</h3></div>
+        {% for c in cards %}
+        <div class="bar-row">
+            <span>Class {{ c.grade }}</span>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ c.avg or 0 }}%"></div></div>
+            <strong>{% if c.avg is none %}-{% else %}{{ c.avg }}%{% endif %}</strong>
+        </div>
+        {% endfor %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h3>Recent quiz activity</h3></div>
+        {% if recent %}
+        <div class="table-scroll" style="margin:0">
+        <table class="data-table">
+            <thead><tr><th>Student</th><th>Quiz</th><th>Score</th></tr></thead>
+            <tbody>
+                {% for r, student, quiz in recent %}
+                <tr>
+                    <td>{{ student.username }}<br><span class="muted">Class {{ student.grade or '-' }}</span></td>
+                    <td>{{ quiz.title }}</td>
+                    <td><span class="pill {{ 'pill-ok' if r.score >= 75 else ('pill-warn' if r.score >= 50 else 'pill-bad') }}">{{ r.score|round|int }}%</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="empty">No quizzes have been taken yet. Add a quiz to a lesson and ask students to try it.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

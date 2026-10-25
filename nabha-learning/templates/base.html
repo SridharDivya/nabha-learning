@@ -1,0 +1,134 @@
+{% from '_icons.html' import icon %}
+{% macro controls() %}
+<span class="nav-controls">
+    <form class="lang-form" action="{{ url_for('set_language') }}" method="post">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <select class="lang-select" name="language" onchange="this.form.submit()" aria-label="Choose language">
+            {% for code, label in supported_languages.items() %}
+                <option value="{{ code }}" {% if session.get('preferred_language', 'en') == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+</span>
+{% endmacro %}
+{% set auth = current_user.is_authenticated %}
+{% set ep = request.endpoint or '' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Nabha Digital Learning{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<script>
+    // Applied before first paint so the page never flashes light-then-dark.
+    (function () {
+        var saved = localStorage.getItem('theme');
+        var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+</script>
+</head>
+<body class="{{ 'app-body' if auth else 'public-body' }}">
+{% if auth %}
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+        <a class="brand" href="{{ url_for('teacher_dashboard' if current_user.role == 'teacher' else 'student_dashboard') }}">
+            <span class="brand-logo">{{ icon('cap') }}</span> Nabha Learning
+        </a>
+        <nav class="side-nav" aria-label="Main">
+            {% if current_user.role == 'student' %}
+                <a href="{{ url_for('student_dashboard') }}" class="{{ 'active' if ep in ('student_dashboard', 'subject_detail', 'take_quiz', 'submit_quiz') }}">{{ icon('home') }} My Courses</a>
+                <a href="{{ url_for('student_timetable') }}" class="{{ 'active' if ep == 'student_timetable' }}">{{ icon('calendar') }} Timetable</a>
+                <a href="{{ url_for('student_attendance') }}" class="{{ 'active' if ep == 'student_attendance' }}">{{ icon('check') }} Attendance</a>
+            {% else %}
+                <a href="{{ url_for('teacher_dashboard') }}" class="{{ 'active' if ep == 'teacher_dashboard' }}">{{ icon('home') }} Dashboard</a>
+            {% endif %}
+            <a href="{{ url_for('assistant') }}" class="{{ 'active' if ep == 'assistant' }}">{{ icon('bot') }} AI Assistant</a>
+        </nav>
+        {% if current_user.role == 'teacher' %}
+        <div class="side-label">Classes</div>
+        <nav class="side-nav" aria-label="Classes">
+            {% for g in grades %}
+                <a href="{{ url_for('teacher_class', grade=g) }}" class="{{ 'active' if ep in ('teacher_class', 'teacher_attendance', 'teacher_timetable') and request.view_args and request.view_args.get('grade') == g }}">{{ icon('layers') }} Class {{ g }}</a>
+            {% endfor %}
+        </nav>
+        {% endif %}
+        <div class="side-foot">
+            <div class="user-card">
+                <span class="avatar">{{ current_user.username[:1] }}</span>
+                <div>
+                    <strong>{{ current_user.username }}</strong>
+                    <span>{% if current_user.role == 'student' %}Student{% if current_user.grade %} · Class {{ current_user.grade }}{% endif %}{% else %}Teacher{% endif %}</span>
+                </div>
+            </div>
+            <nav class="side-nav"><a href="{{ url_for('logout') }}">{{ icon('logout') }} Logout</a></nav>
+        </div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <div class="app-main">
+        <header class="topbar">
+            <button type="button" class="menu-btn" id="menu-btn" aria-label="Open menu">{{ icon('menu') }}</button>
+            <span class="topbar-title">{{ 'Teacher Portal' if current_user.role == 'teacher' else 'Student Portal' }} · Nabha, Punjab</span>
+            <div class="topbar-actions">{{ controls() }}</div>
+        </header>
+{% else %}
+<header class="navbar">
+    <a class="brand" href="{{ url_for('index') }}">📚 Nabha Digital Learning</a>
+    <nav>
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}" class="btn-nav">Register</a>
+        {{ controls() }}
+    </nav>
+</header>
+{% endif %}
+
+<div id="offline-banner" class="offline-banner hidden">
+    ⚠ You are offline. Lessons you've already opened and quizzes are still usable — your answers will sync when you're back online.
+</div>
+
+<main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">Digital Learning Platform for Rural School Students — Nabha, Punjab</footer>
+{% if auth %}
+    </div>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/offline-sync.js') }}"></script>
+<script>
+    (function () {
+        var toggleBtn = document.getElementById('theme-toggle');
+        var root = document.documentElement;
+        function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+        function updateIcon() { toggleBtn.textContent = isDark() ? '☀️' : '🌙'; }
+        updateIcon();
+        toggleBtn.addEventListener('click', function () {
+            if (isDark()) { root.removeAttribute('data-theme'); localStorage.setItem('theme', 'light'); }
+            else { root.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark'); }
+            updateIcon();
+        });
+
+        var menuBtn = document.getElementById('menu-btn');
+        var overlay = document.getElementById('sidebar-overlay');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', function () { document.body.classList.toggle('sidebar-open'); });
+            overlay.addEventListener('click', function () { document.body.classList.remove('sidebar-open'); });
+        }
+    })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
