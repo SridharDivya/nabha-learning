@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="form-card">
+    <h2>Create an Account</h2>
+    <form method="POST" action="{{ url_for('register') }}">
+        <label for="username">Username</label>
+        <input id="username" type="text" name="username" value="{{ form.get('username', '') }}" autocomplete="username" required>
+
+        <label for="email">Email address</label>
+        <input id="email" type="email" name="email" value="{{ form.get('email', '') }}" autocomplete="email" required>
+
+        <label for="password">Password (at least 6 characters)</label>
+        <input id="password" type="password" name="password" autocomplete="new-password" minlength="6" required>
+
+        <label for="role">I am a</label>
+        <select id="role" name="role" onchange="toggleRole()">
+            <option value="student" {{ 'selected' if form.get('role', 'student') == 'student' }}>Student</option>
+            <option value="teacher" {{ 'selected' if form.get('role') == 'teacher' }}>Teacher</option>
+        </select>
+
+        <div id="grade-box">
+            <label for="grade">My class</label>
+            <select id="grade" name="grade">
+                <option value="">Choose your class</option>
+                {% for g in grades %}
+                <option value="{{ g }}" {{ 'selected' if form.get('grade') == g|string }}>Class {{ g }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if teacher_code_required %}
+        <div id="code-box" class="hidden">
+            <label for="teacher_code">Teacher access code</label>
+            <input id="teacher_code" type="password" name="teacher_code" autocomplete="off">
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">Register</button>
+    </form>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Log in here</a></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleRole() {
+    var teacher = document.getElementById('role').value === 'teacher';
+    document.getElementById('grade-box').classList.toggle('hidden', teacher);
+    document.getElementById('grade').required = !teacher;
+    var code = document.getElementById('code-box');
+    if (code) code.classList.toggle('hidden', !teacher);
+}
+toggleRole();
+</script>
+{% endblock %}

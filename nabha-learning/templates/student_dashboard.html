@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}My Courses - Class {{ current_user.grade }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>🎓 Class {{ current_user.grade }} - Welcome, {{ current_user.username }}</h2>
+</div>
+
+<div class="stat-grid">
+    <div class="stat"><span>Subjects</span><strong>{{ subjects|length }}</strong></div>
+    <div class="stat"><span>Quizzes taken</span><strong>{{ total_quizzes }}</strong></div>
+    <div class="stat"><span>Average score</span><strong>{{ avg_score }}%</strong></div>
+    <div class="stat">
+        <span>Attendance</span>
+        <strong>{% if attendance.pct is none %}-{% else %}{{ attendance.pct }}%{% endif %}</strong>
+    </div>
+</div>
+
+<h3>Today's classes ({{ today_name }})</h3>
+{% if today_classes %}
+<ul class="lesson-list">
+    {% for e in today_classes %}
+    <li><span><strong>P{{ e.period }}</strong> &nbsp;{{ e.subject_name }}</span><span class="muted">{{ e.start_time }}-{{ e.end_time }}</span></li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No classes today. <a href="{{ url_for('student_timetable') }}">See the full timetable</a>.</p>
+{% endif %}
+
+<h3>My subjects</h3>
+<div class="card-grid">
+    {% for subject in subjects %}
+    <a class="card subject-card" href="{{ url_for('subject_detail', subject_id=subject.id) }}">
+        <h3>{{ subject.title }}</h3>
+        <p class="muted">{{ subject.description }}</p>
+        <span class="tag" style="margin-left:0">{{ subject.units|length }} lessons</span>
+        {% set ns = namespace(q=0) %}{% for u in subject.units %}{% set ns.q = ns.q + u.quizzes|length %}{% endfor %}
+        {% if ns.q %}<span class="tag">{{ ns.q }} quizzes</span>{% endif %}
+    </a>
+    {% else %}
+    <p class="muted">Your teacher has not added subjects for Class {{ current_user.grade }} yet.</p>
+    {% endfor %}
+</div>
+
+{% if results %}
+<h3>Recent quiz results</h3>
+<table class="data-table">
+    <thead><tr><th>Quiz</th><th>Score</th><th>Date</th></tr></thead>
+    <tbody>
+        {% for r in results %}
+        <tr><td>Quiz #{{ r.quiz_id }}</td><td>{{ r.score|round|int }}%</td><td>{{ r.completed_at.strftime('%d %b %Y') }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}
