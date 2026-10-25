@@ -88,9 +88,17 @@ def _call_claude(system_prompt, messages):
         return None
 
 
+STOPWORDS = {
+    'the', 'and', 'for', 'are', 'was', 'were', 'what', 'whats', 'whts', 'how', 'why', 'who', 'when',
+    'where', 'which', 'this', 'that', 'with', 'from', 'about', 'can', 'you', 'your', 'does', 'did',
+    'tell', 'give', 'please', 'explain', 'help', 'let', 'have', 'has', 'not', 'any', 'all', 'our',
+    'class', 'study', 'subject', 'subjects', 'topic', 'lesson', 'lessons',
+}
+
+
 def _lesson_search(question, units):
     """Offline fallback: find the lesson units that best match the question."""
-    words = {w for w in re.findall(r'[a-zA-Z]{3,}', question.lower())}
+    words = {w for w in re.findall(r'[a-zA-Z]{3,}', question.lower())} - STOPWORDS
     if not words:
         return None
     scored = []
@@ -100,7 +108,7 @@ def _lesson_search(question, units):
         if score:
             scored.append((score, unit))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    if not scored:
+    if not scored or scored[0][0] < 2:
         return None
     parts = []
     for _, unit in scored[:2]:
@@ -120,6 +128,11 @@ def ask_ai(role, grade, subject_titles, message, history, units):
     reply = _call_claude(build_system_prompt(role, grade, subject_titles), messages)
     if reply:
         return {'reply': reply, 'source': 'ai'}
+
+    asks_subjects = re.search(r'\b(subjects?|syllabus|study|studying)\b', message.lower())
+    if asks_subjects and subject_titles and role == 'student':
+        return {'reply': f"In Class {grade} you study: " + ', '.join(subject_titles) +
+                         ". Ask me about any topic from these subjects!", 'source': 'lessons'}
 
     found = _lesson_search(message, units)
     if found:
