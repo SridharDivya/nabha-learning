@@ -1,19 +1,23 @@
 """AI assistant for students and teachers.
 
-If the ANTHROPIC_API_KEY environment variable is set, questions are answered by
-Claude through the Anthropic API. If it is not set (or the call fails), the
-assistant falls back to searching the lesson content stored in the app, so the
-page always gives a useful answer.
+Real AI answers use ONE of these providers (checked in this order):
+    GEMINI_API_KEY     free key from Google AI Studio (free tier, no card needed)
+    ANTHROPIC_API_KEY  paid Anthropic API key
+If neither is set (or the call fails), the assistant falls back to searching the
+lesson content stored in the app, so the page always gives a useful answer.
 
 Optional environment variables:
-    ANTHROPIC_API_KEY  your API key (required for real AI answers)
-    AI_MODEL           model name (default: claude-sonnet-5-5)
+    GEMINI_MODEL       Gemini model name (default: gemini-3.8-flash)
+    AI_MODEL           Anthropic model name (default: claude-sonnet-5-5)
 """
+import math
 import os
 import re
 import requests
 
 API_URL = 'https://api.anthropic.com/v1/messages'
+GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
+DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash'
 DEFAULT_MODEL = 'claude-sonnet-5-5'
 MAX_HISTORY = 10
 MAX_MESSAGE_CHARS = 1000
@@ -60,6 +64,41 @@ def _clean_history(history):
     return merged
 
 
+def ai_enabled():
+    return bool(os.environ.get('GEMINI_API_KEY') or os.environ.get('ANTHROPIC_API_KEY'))
+
+
+def _call_gemini(system_prompt, messages):
+    key = os.environ.get('GEMINI_API_KEY')
+    if not key:
+        return None
+    model = os.environ.get('GEMINI_MODEL', DEFAULT_GEMINI_MODEL)
+    try:
+        response = requests.post(
+            GEMINI_URL.format(model=model),
+            headers={'x-goog-api-key': key, 'content-type': 'application/json'},
+            json={
+                'system_instruction': {'parts': [{'text': system_prompt}]},
+                'contents': [
+                    {'role': 'user' if m['role'] == 'user' else 'model', 'parts': [{'text': m['content']}]}
+                    for m in messages
+                ],
+                'generationConfig': {'maxOutputTokens': 900, 'temperature': 0.6},
+            },
+            timeout=40,
+        )
+        if response.status_code != 200:
+            # Shows up in Render's Logs tab so a wrong key or model name is easy to spot.
+            print(f'[ai_assistant] Gemini error {response.status_code}: {response.text[:300]}', flush=True)
+            return None
+        parts = response.json()['candidates'][0]['content']['parts']
+        text = ''.join(p.get('text', '') for p in parts).strip()
+        return text or None
+    except Exception as exc:
+        print(f'[ai_assistant] Gemini call failed: {exc!r}', flush=True)
+        return None
+
+
 def _call_claude(system_prompt, messages):
     key = os.environ.get('ANTHROPIC_API_KEY')
     if not key:
@@ -92,23 +131,43 @@ STOPWORDS = {
     'the', 'and', 'for', 'are', 'was', 'were', 'what', 'whats', 'whts', 'how', 'why', 'who', 'when',
     'where', 'which', 'this', 'that', 'with', 'from', 'about', 'can', 'you', 'your', 'does', 'did',
     'tell', 'give', 'please', 'explain', 'help', 'let', 'have', 'has', 'not', 'any', 'all', 'our',
-    'class', 'study', 'subject', 'subjects', 'topic', 'lesson', 'lessons',
+    'class', 'study', 'subject', 'subjects', 'topic', 'lesson', 'lessons', 'make', 'plan', 'plans',
+    'easy', 'simple', 'activity', 'activities', 'question', 'questions', 'mcq', 'mcqs', 'quiz',
+    'worksheet', 'teach', 'write', 'create', 'show', 'some', 'step',
 }
+
+# Requests that need a real AI to write something new (a fallback can only search lessons).
+GENERATE_PATTERN = re.compile(
+    r'\b(lesson plan|plan|mcqs?|quiz|worksheet|activity|activities|questions?|homework|essay|summary)\b')
+
+
+def _stem(word):
+    word = word.lower()
+    return word[:-1] if len(word) > 3 and word.endswith('s') else word
 
 
 def _lesson_search(question, units):
-    """Offline fallback: find the lesson units that best match the question."""
-    words = {w for w in re.findall(r'[a-zA-Z]{3,}', question.lower())} - STOPWORDS
-    if not words:
+    """Offline fallback: rank lesson units by matching whole words, giving rare words more weight."""
+    words = {_stem(w) for w in re.findall(r'[a-zA-Z]{3,}', question.lower()) if w not in STOPWORDS}
+    if not words or not units:
         return None
-    scored = []
+    docs = []
     for unit in units:
-        haystack = f"{unit.title} {unit.content or ''}".lower()
-        score = sum(haystack.count(w) for w in words) + 3 * sum(w in unit.title.lower() for w in words)
-        if score:
+        title_words = [_stem(w) for w in re.findall(r'[a-zA-Z]+', unit.title)]
+        body_words = [_stem(w) for w in re.findall(r'[a-zA-Z]+', unit.content or '')]
+        docs.append((unit, title_words, body_words))
+    total = len(docs)
+    scored = []
+    weights = {}
+    for w in words:
+        df = sum(1 for _, t, b in docs if w in t or w in b)
+        weights[w] = math.log((total + 1) / (df + 1)) + 0.1 if df else 0
+    for unit, title_words, body_words in docs:
+        score = sum(weights[w] * (min(body_words.count(w), 2) + (2 if w in title_words else 0)) for w in words)
+        if score > 0:
             scored.append((score, unit))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    if not scored or scored[0][0] < 2:
+    if not scored:
         return None
     parts = []
     for _, unit in scored[:2]:
@@ -125,7 +184,8 @@ def ask_ai(role, grade, subject_titles, message, history, units):
         return {'reply': 'Please type a question.', 'source': 'none'}
 
     messages = _clean_history(history) + [{'role': 'user', 'content': message}]
-    reply = _call_claude(build_system_prompt(role, grade, subject_titles), messages)
+    system_prompt = build_system_prompt(role, grade, subject_titles)
+    reply = _call_gemini(system_prompt, messages) or _call_claude(system_prompt, messages)
     if reply:
         return {'reply': reply, 'source': 'ai'}
 
@@ -135,6 +195,12 @@ def ask_ai(role, grade, subject_titles, message, history, units):
                          ". Ask me about any topic from these subjects!", 'source': 'lessons'}
 
     found = _lesson_search(message, units)
+    if GENERATE_PATTERN.search(message.lower()):
+        reply = ("Writing lesson plans, quiz questions, worksheets or activities needs the AI service, "
+                 "which is not switched on yet. Ask the site owner to add the AI key.")
+        if found:
+            reply += "\n\nMeanwhile, here is related lesson content already in your course:\n\n" + found
+        return {'reply': reply, 'source': 'lessons' if found else 'none'}
     if found:
         note = ("(The AI service is not switched on yet, so here is the most relevant lesson content "
                 "from your course.)\n\n")
